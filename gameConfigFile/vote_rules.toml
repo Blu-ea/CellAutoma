@@ -1,0 +1,28 @@
+# https://conwaylife.com/wiki/OCA:Vote
+
+[engine]
+# max_width = 1000
+# max_height = 1000
+# wrap_around = false
+default_cell = 0
+simulation_dist = 1
+
+[cells.Dead]
+id = 0
+color = "#454545"
+
+    [[cells.Dead.rules]]
+    look_for = [1]
+    min = 5
+    max = 8
+    next_state = 1
+
+[cells.Alive]
+id = 1
+color = "#FFFFFF"
+
+    [[cells.Alive.rules]]
+    look_for = [1]
+    min = 0
+    max = 3
+    next_state = 0
