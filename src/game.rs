@@ -58,10 +58,13 @@ impl Map{
     pub fn display_term(&self, x: i16, y: i16, range: i16){
         for m in y-range..y+range {
             for n in x-range..x+range {
-                if self.get(n, m) == 0{
+                let id = self.get(n, m);
+                if id == 0{
                     print!("\x1b[100m  ");
-                } else {
+                } else if id == 1 {
                     print!("\x1b[47m  ");
+                } else {
+                    print!("\x1b[42m  ");
                 }
             }
             println!("\x1b[0m");
@@ -120,13 +123,13 @@ impl Context {
         }
 
         
-        for (pos,suround) in proximity_counter {
+        for (pos,surounding) in proximity_counter {
             let current_id:CellID = self.map.get(pos.0, pos.1);
             self.map.set(
                 pos.0, pos.1 ,
                 self.config.cells[
                         &(self.config.id_to_string.as_ref().unwrap())[&current_id]]
-                    .update(&suround)
+                    .update(&surounding)
             );
         }
     }

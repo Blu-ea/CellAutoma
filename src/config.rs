@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::stdin;
 
 use serde::Deserialize;
+
 use serde::Serialize;
 
 pub type CellID = u8;
@@ -59,16 +59,6 @@ impl Config {
 
 impl CellInfo {
     pub fn update(&self, surounding: &[u8; CELL_ID_MAX]) -> CellID{
-        // if surounding[1] == 0 {0}
-        // else if self.id == 0 && surounding[1] > 4 {1}  // Cave rull   | B5678/S45678
-        // else if self.id == 0 {0}
-        // else if surounding[1] < 4 || surounding[1] > 9 { 0 }
-        // else {1}
-
-        // else if self.id == 0 && surounding[1] == 3 {1}  // Convey rules   | B3/S23
-        // else if self.id == 0 {0}
-        // else if surounding[1] < 2 || surounding[1] > 3 { 0 }
-        // else {1}
         for rule in &self.rules{
             // println!("{surounding:?} -- {}", self.id);
             // println!("{:?}", self.rules);

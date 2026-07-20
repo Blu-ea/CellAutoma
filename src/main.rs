@@ -1,10 +1,21 @@
+#![allow(
+    dead_code,
+    unsafe_op_in_unsafe_fn,
+    unused_variables,
+    clippy::too_many_arguments,
+    clippy::unnecessary_wraps
+)]
+
 use game_life::{config::*, game::Context};
 use core::time;
-use std::{io::stdin, process::exit, time::Instant};
+use std::{io::stdin, process::exit, time::Instant, env};
 
 
 fn main() {
-    let config: Config = match Config::from_file("/home/amiguez/Projects/GameLife/gameConfigFile/vote_rules.toml".to_string()) {
+    let filename = env::args().nth(1);
+    if filename.is_none() { return eprintln!("Error: missing arg filename")}
+
+    let config: Config = match Config::from_file(filename.unwrap()) {
         Err(e) => {
             eprintln!("Error: {e}");
             exit(1);
