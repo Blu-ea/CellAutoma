@@ -1,11 +1,3 @@
-#![allow(
-    dead_code,
-    unsafe_op_in_unsafe_fn,
-    unused_variables,
-    clippy::too_many_arguments,
-    clippy::unnecessary_wraps
-)]
-
 use game_life::{config::*, game::Context};
 use core::time;
 use std::{io::stdin, process::exit, time::Instant, env};
@@ -27,7 +19,7 @@ fn main() {
 
     for n in -100..100 {
         for m in -100..100 {
-            // context.map.set(n, m, rand::random::<CellID>()%2);
+            context.map.set(n, m, rand::random::<CellID>()%2);
             // context.map.set(n, m, 1);
         }
     }
@@ -78,7 +70,7 @@ fn main() {
     // print!("\x1b[H"); // Move cursor to top left corner of terminal
     loop{
         print!("\x1b[s");
-        context.map.display_term(0, 0, 10);
+        context.map.display_term(0, 0, 100);
         // sleep(time::Duration::from_millis(20));
         let now = Instant::now();
         context.update();
@@ -101,3 +93,4 @@ fn main() {
     // context.update();
     // context.map.display_term(0, 0, 10);
 }
+

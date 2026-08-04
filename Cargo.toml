@@ -3,7 +3,7 @@ name = "game_life"
 version = "0.1.0"
 edition = "2021"
 
-default-run = "game_life"
+default-run = "terminal"
 
 [dependencies]
 rand = "0.10.2"
