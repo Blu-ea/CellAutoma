@@ -17,29 +17,29 @@ fn main() -> Result<()> {
         .with_title("Vulkan Tutorial (Rust)")
         .with_inner_size(LogicalSize::new(1024, 768))
         .build(&event_loop)?;
-
+    let mut minimized = false;
     // App
 
     let mut app = unsafe { App::create(&window)? };
 
     event_loop.run(move |event, elwt| {
         match event {
-            // Request a redraw when all events were processed.
             Event::AboutToWait => window.request_redraw(),
 
-            Event::WindowEvent { event , .. } =>{
-
-                // println!("{:?}", event);
-                match event {
-                // Render a frame if our Vulkan app is not being destroyed.
-                WindowEvent::RedrawRequested if !elwt.exiting() => unsafe { app.render(&window) }.unwrap(),
-                // Destroy our Vulkan app.
-                WindowEvent::CloseRequested => {
-                    elwt.exit();
-                    unsafe { app.destroy(); }
+            Event::WindowEvent { event: WindowEvent::Resized(size), .. } =>{
+                if size.width == 0 || size.height == 0 {
+                    minimized = true;
+                } else {
+                    minimized = false;
+                    app.resized = true;
                 }
-                _ => {}}    
             }
+            Event::WindowEvent { event: WindowEvent::RedrawRequested , .. } if !elwt.exiting() && !minimized => unsafe { app.render(&window) }.unwrap(),
+            Event::WindowEvent { event: WindowEvent::CloseRequested , .. } => {
+                elwt.exit();
+                unsafe { app.destroy(); }
+            }
+
             _ => {}
         }
     })?;
