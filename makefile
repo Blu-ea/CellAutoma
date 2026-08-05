@@ -21,4 +21,4 @@ $(SHADER_DIR)/$(SHADER_SPV_DIR) :
 clean_shader:
 	rm -f $(SHADER_SPV)
 
-.PHONY: shader clean_shader	
+.PHONY: shader clean_shader
