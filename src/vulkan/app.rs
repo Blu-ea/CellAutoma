@@ -26,9 +26,9 @@ use std::collections::HashSet;
 #[derive(Clone, Debug)]
 pub struct App {
     entry: Entry,
-    instance: Instance,
-    data: AppData,
-    device: Device,
+    pub instance: Instance,
+    pub data: AppData,
+    pub device: Device,
 // define which semaphore to use for rendering images.
     frame: usize,
     pub resized: bool,
@@ -47,6 +47,7 @@ impl App {
         create_swapchain(window, &instance, &device, &mut data)?;
         create_swapchain_image_views(&device, &mut data)?;
         create_render_pass(&instance, &device, &mut data)?;
+        create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
@@ -140,6 +141,8 @@ impl App {
     pub unsafe fn destroy(&mut self) {
         self.destroy_swapchain();
 
+        self.device.destroy_descriptor_set_layout(self.data.descriptor_set_layout, None);
+
         self.device.destroy_buffer(self.data.vertex_buffer, None);
         self.device.free_memory(self.data.vertex_buffer_memory, None);
         self.device.destroy_buffer(self.data.index_buffer, None);
@@ -194,6 +197,7 @@ pub struct AppData {
     swapchain_image_views: Vec<vk::ImageView>,
 
     render_pass: vk::RenderPass,
+    descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
 
     // The Actual Pipeline !!
@@ -301,7 +305,6 @@ unsafe fn pick_physical_device(instance: &Instance, data: &mut AppData) -> Resul
         let properties = instance.get_physical_device_properties(physical_device);
         if let Err(error) = check_physical_device(instance, data, physical_device) {
             warn!("Skipping physical device (`{}`): {}", properties.device_name, error);
-            println!("this is a test D: ");
         } else {
             info!("Selected physical devide (`{}`)", properties.device_name);
             data.physical_device = physical_device;
@@ -643,7 +646,7 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
         .vertex_attribute_descriptions(&attribute_descriptions);
 
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+        .topology(vk::PrimitiveTopology::POINT_LIST)
         .primitive_restart_enable(false);
     let viewport = vk::Viewport::builder()
         .x(0.0)
@@ -957,6 +960,29 @@ pub unsafe fn copy_buffer(
     device.queue_wait_idle(data.graphics_queue)?;
     
     device.free_command_buffers(data.command_pool, &[command_buffer]);
+
+    Ok(())
+}
+
+unsafe fn create_descriptor_set_layout(
+    device: &Device,
+    data: &mut AppData,
+) -> Result<()> {
+    let ubo_binding = vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::VERTEX);
+
+    let bindings = &[ubo_binding];
+    let info = vk::DescriptorSetLayoutCreateInfo::builder()
+        .bindings(bindings);
+
+    data.descriptor_set_layout = device.create_descriptor_set_layout(&info, None)?;
+
+    let set_layouts = &[data.descriptor_set_layout];
+    let layout_info = vk::PipelineLayoutCreateInfo::builder()
+        .set_layouts(set_layouts);
 
     Ok(())
 }

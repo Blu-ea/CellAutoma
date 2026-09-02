@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
-use anyhow::Result;
-use cgmath::{vec2, vec3};
+use anyhow::{Ok, Result};
+use cgmath::{vec2, vec3, point3, Deg};
 use vulkanalia::prelude::v1_0::*;
 
 use crate::vulkan::{AppData, app::{copy_buffer, create_buffer}};
@@ -10,6 +10,7 @@ use std::ptr::copy_nonoverlapping as memcpy;
 
 pub type Vec2 = cgmath::Vector2<f32>;
 pub type Vec3 = cgmath::Vector3<f32>;
+pub type Mat4 = cgmath::Matrix4<f32>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -53,7 +54,6 @@ pub unsafe fn create_vertex_buffer(
     device: &Device,    
     data: &mut AppData,
 ) -> Result<()> {
-    println!("This is a test :D ");
     let size = (size_of::<Vertex>() * VERTICES.len()) as u64;
     
     let (staging_buffer, staging_buffer_memory) = create_buffer(
@@ -96,7 +96,6 @@ pub unsafe fn create_vertex_buffer(
 
     Ok(())
 }
-
 
 pub unsafe fn create_index_buffer(
     instance: &Instance,
@@ -147,9 +146,74 @@ pub unsafe fn create_index_buffer(
 
 // Square formation
 pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
-pub static VERTICES: [Vertex; 4] = [
+pub static mut VERTICES: [Vertex; 4] = [
     Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0)),
     Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0)),
     Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0)),
     Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0)),
 ];
+
+
+
+pub unsafe fn update_vertex_buffer(
+    instance: &Instance,
+    device: &Device,    
+    data: &mut AppData,
+) -> Result<()> {
+
+   let size = (size_of::<Vertex>() * VERTICES.len()) as u64;
+
+    // 1. Create a temporary CPU-visible staging buffer
+    let (staging_buffer, staging_buffer_memory) = create_buffer(
+        instance,
+        device,
+        data,
+        size,
+        vk::BufferUsageFlags::TRANSFER_SRC,
+        vk::MemoryPropertyFlags::HOST_VISIBLE
+            | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )?;
+
+    // 2. Map the staging memory
+    let memory = device.map_memory(
+        staging_buffer_memory,
+        0,
+        size,
+        vk::MemoryMapFlags::empty(),
+    )?;
+
+    // 3. Copy the vertices into the staging buffer
+    memcpy(
+        VERTICES.as_ptr(),
+        memory.cast(),
+        size as usize,
+    );
+
+    // 4. Unmap
+    device.unmap_memory(staging_buffer_memory);
+
+    // 5. Copy staging buffer → EXISTING vertex buffer
+    copy_buffer(
+        device,
+        data,
+        staging_buffer,
+        data.vertex_buffer,
+        size,
+    )?;
+
+    // 6. Destroy temporary staging resources
+    device.destroy_buffer(staging_buffer, None);
+    device.free_memory(staging_buffer_memory, None);
+
+    Ok(())
+}
+
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct UniformBufferObject {
+    model: Mat4,
+    view: Mat4,
+    proj: Mat4,
+}
+

@@ -1,7 +1,11 @@
 use anyhow::Result;
+use cgmath::{vec2, vec3};
+use game_life::vulkan::obj::{VERTICES, Vertex, update_vertex_buffer};
 use winit::dpi::LogicalSize;
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, KeyEvent, WindowEvent};
 use winit::event_loop::EventLoop;
+use winit::keyboard::KeyCode::{Escape, KeyO, KeyP, KeyR};
+use winit::keyboard::PhysicalKey::Code;
 use winit::window::{WindowBuilder};
 
 use game_life::vulkan::App;
@@ -35,14 +39,25 @@ fn main() -> Result<()> {
                 }
             }
             Event::WindowEvent { event: WindowEvent::RedrawRequested , .. } if !elwt.exiting() && !minimized => unsafe { app.render(&window) }.unwrap(),
-            Event::WindowEvent { event: WindowEvent::CloseRequested , .. } => {
+
+            Event::WindowEvent { event: WindowEvent::CloseRequested , .. } | match_key_pressed!(Escape) => {
                 elwt.exit();
                 unsafe { app.destroy(); }
             }
-
+            match_key_pressed!(KeyP) => {println!("KeyP");unsafe{VERTICES[0] = Vertex::new(vec2(-0.5, -0.5), vec3(0.0, 1.0, 1.0));update_vertex_buffer(&app.instance, &app.device, &mut app.data);}}
+            match_key_pressed!(KeyO) => {println!("KeyO");unsafe{VERTICES[0] = Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0));update_vertex_buffer(&app.instance, &app.device, &mut app.data);}}
+            // match_key_pressed!(KeyR) => {println!("KeyR");unsafe{let _ = update_vertex_buffer(&app.instance, &app.device, &mut app.data);window.request_redraw();}}
+            
             _ => {}
         }
     })?;
 
     Ok(())
+}
+
+#[macro_export]
+macro_rules! match_key_pressed {
+    ($key:tt) => {
+        Event::WindowEvent { event: WindowEvent::KeyboardInput {event: KeyEvent{physical_key: Code($key), state: winit::event::ElementState::Pressed, repeat: false, ..}, ..}, ..}
+    };
 }
