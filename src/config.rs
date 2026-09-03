@@ -49,7 +49,7 @@ impl Config {
         let mut id_to_string:HashMap<CellID, String> = Default::default();
         for (name, info) in &config.cells{
             id_to_string.entry(info.id).insert_entry(name.clone());
-        } 
+        }
         config.id_to_string = Some(id_to_string);
         Ok(config)
     }
@@ -66,7 +66,7 @@ impl CellInfo {
             // _ = stdin().read_line(&mut _s);
             if surounding[rule.look_for[0] as usize] >= rule.min && surounding[rule.look_for[0] as usize] <= rule.max
                 {
-                    // println!("{surounding:?} -- {}", self.id);  
+                    // println!("{surounding:?} -- {}", self.id);
                     return rule.next_state;
                 }
         }

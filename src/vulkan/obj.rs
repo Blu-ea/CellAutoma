@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use anyhow::{Ok, Result};
-use cgmath::{vec2, vec3, point3, Deg};
+use cgmath::{vec2, vec3};
 use vulkanalia::prelude::v1_0::*;
 
 use crate::vulkan::{AppData, app::{copy_buffer, create_buffer}};
@@ -99,7 +99,7 @@ pub unsafe fn create_vertex_buffer(
 
 pub unsafe fn create_index_buffer(
     instance: &Instance,
-    device: &Device,
+    device: &Device,    
     data: &mut AppData,
 ) -> Result<()> {
     let size = (size_of::<u16>() * INDICES.len()) as u64;
@@ -211,9 +211,34 @@ pub unsafe fn update_vertex_buffer(
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-struct UniformBufferObject {
-    model: Mat4,
-    view: Mat4,
-    proj: Mat4,
+pub struct UniformBufferObject {
+    pub model: Mat4,
+    pub view: Mat4,
+    pub proj: Mat4,
+}
+
+// Creates one uniform buffer per swapchain image
+pub unsafe fn create_uniform_buffers(
+    instance: &Instance,
+    device: &Device,
+    data: &mut AppData,
+) -> Result<()> {
+    data.uniform_buffers.clear();
+    data.uniform_buffers_memory.clear();
+
+    for _ in 0..data.swapchain_images.len() {
+        let (uniform_buffer, uniform_buffer_memory) = create_buffer(
+            instance,
+            device,
+            data,
+            size_of::<UniformBufferObject>() as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER, vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE
+        )?;
+        
+        data.uniform_buffers.push(uniform_buffer);
+        data.uniform_buffers_memory.push(uniform_buffer_memory);
+    }
+
+    Ok(())
 }
 

@@ -9,6 +9,7 @@
 )]
 
 use anyhow::{ Result, anyhow};
+use cgmath::{Deg, point3, vec3};
 use thiserror::Error;
 use log::*;
 
@@ -20,6 +21,8 @@ use vulkanalia::{ Version, window as vk_window };
 use vulkanalia::vk::{ CommandBufferLevel, CommandPoolCreateInfo, KhrSurfaceExtensionInstanceCommands, KhrSwapchainExtensionDeviceCommands };
 
 use std::collections::HashSet;
+use std::ptr::copy_nonoverlapping as memcpy;
+use std::time::Instant;
 
 
 /// Our Vulkan app.
@@ -32,6 +35,8 @@ pub struct App {
 // define which semaphore to use for rendering images.
     frame: usize,
     pub resized: bool,
+
+    start: Instant,
 }
 
 impl App {
@@ -39,8 +44,8 @@ impl App {
     pub unsafe fn create(window: &Window) -> Result<Self> {
         let loader = LibloadingLoader::new(LIBRARY)?;
         let entry = Entry::new(loader).map_err(|b| anyhow!("{}", b))?;
-        let instance = create_instance(window, &entry)?;
         let mut data = AppData::default();
+        let instance = create_instance(window, &entry, &mut data)?;
         data.surface = vk_window::create_surface(&instance, &window, &window)?;
         pick_physical_device(&instance, &mut data)?;
         let device = create_logical_device(&entry, &instance, &mut data)?;
@@ -53,10 +58,20 @@ impl App {
         create_command_pool(&instance, &device, &mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
         create_index_buffer(&instance, &device, &mut data)?;
+        create_uniform_buffers(&instance, &device, &mut data)?;
+        create_descriptor_pool(&device, &mut data)?;
+        create_descriptor_sets(&device, &mut data)?;
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
-
-        Ok(Self { entry, instance, data ,device ,frame: 0, resized: false})
+        Ok(Self {
+            entry,
+            instance,
+            data,
+            device,
+            frame: 0,
+            resized: false,
+            start: Instant::now(),
+        })
     }
 
     /// Renders a frame for our Vulkan app.
@@ -81,6 +96,8 @@ impl App {
             self.device.wait_for_fences(&[self.data.images_in_flight[image_index]],true,u64::MAX,)?;
         }
         self.data.images_in_flight[image_index] = self.data.in_flight_fences[self.frame];
+
+        self.update_uniform_buffer(image_index)?;
 
         let wait_semaphores = &[self.data.image_available_semaphores[self.frame]];
         let wait_stages = &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -132,6 +149,9 @@ impl App {
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
         create_framebuffers(&self.device, &mut self.data)?;
+        create_uniform_buffers(&self.instance, &self.device, &mut self.data)?;
+        create_descriptor_pool(&self.device, &mut self.data)?;
+        create_descriptor_sets(&self.device, &mut self.data)?;
         create_command_buffers(&self.device, &mut self.data)?;
         self.data.images_in_flight.resize(self.data.swapchain_images.len(), vk::Fence::null());
         Ok(())
@@ -165,6 +185,14 @@ impl App {
     }
 
     unsafe fn destroy_swapchain(&mut self) {
+        self.device.destroy_descriptor_pool(self.data.descriptor_pool, None);
+        self.data.uniform_buffers
+            .iter()
+            .for_each(|b| self.device.destroy_buffer(*b, None));
+        self.data.uniform_buffers_memory
+            .iter()
+            .for_each(|m| self.device.free_memory(*m, None));
+        
         self.data.framebuffers.iter().for_each(|f|
             self.device.destroy_framebuffer(*f, None));
         self.device.free_command_buffers(self.data.command_pool, &self.data.command_buffers);
@@ -174,6 +202,41 @@ impl App {
         self.data.swapchain_image_views.iter().for_each(|v|
             self.device.destroy_image_view(*v, None));
         self.device.destroy_swapchain_khr(self.data.swapchain, None);
+    }
+
+    unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()> {
+        let time = self.start.elapsed().as_secs_f32();
+        let model = Mat4::from_axis_angle(
+            vec3(0.0, 0.0, 1.0),
+            Deg(90.0) * time
+        );
+
+        let view = Mat4::look_at_rh(
+            point3(2.0, 2.0, 2.0),
+            point3(0.0, 0.0, 0.0),
+            vec3(0.0, 0.0, 1.0),
+        );
+
+        let mut proj = cgmath::perspective(
+            Deg(90.0),
+            self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
+            0.1,
+            10.0,
+        );
+        proj[1][1] *= -1.0; // the y access is inverted by cgmath since it was created for opengl
+
+        let ubo = UniformBufferObject { model, view, proj };
+
+        let memory = self.device.map_memory(
+            self.data.uniform_buffers_memory[image_index],
+            0,
+            size_of::<UniformBufferObject>() as u64,
+            vk::MemoryMapFlags::empty(),
+        )?;
+        memcpy(&ubo, memory.cast(), 1);
+        self.device.unmap_memory(self.data.uniform_buffers_memory[image_index]);
+
+        Ok(())
     }
 }
 
@@ -192,7 +255,7 @@ pub struct AppData {
     swapchain_format: vk::Format,
     swapchain_extent: vk::Extent2D,
     swapchain: vk::SwapchainKHR,
-    swapchain_images: Vec<vk::Image>,
+    pub swapchain_images: Vec<vk::Image>,
     // describe how to access and witch part to access of the image.
     swapchain_image_views: Vec<vk::ImageView>,
 
@@ -220,6 +283,11 @@ pub struct AppData {
 
     pub index_buffer: vk::Buffer,
     pub index_buffer_memory: vk::DeviceMemory,
+
+    pub uniform_buffers: Vec<vk::Buffer>,
+    pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
+    pub descriptor_pool: vk::DescriptorPool,
+    pub descriptor_sets: Vec<vk::DescriptorSet>,
 }
 
 
@@ -235,9 +303,8 @@ const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.na
 // Define the MAX number of preview frames
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
-
-// Create a vulkan Instance
-unsafe fn create_instance(window: &Window, entry: &Entry) -> Result<Instance> {
+unsafe fn create_instance(window: &Window, entry: &Entry, data: &mut AppData) -> Result<Instance> {
+    // Application Info
 
     let application_info = vk::ApplicationInfo::builder()
         .application_name(b"Vulkan Tutorial\0")
@@ -245,6 +312,8 @@ unsafe fn create_instance(window: &Window, entry: &Entry) -> Result<Instance> {
         .engine_name(b"No Engine\0")
         .engine_version(vk::make_version(1, 0, 0))
         .api_version(vk::make_version(1, 0, 0));
+
+    // Layers
 
     let available_layers = entry
         .enumerate_instance_layer_properties()?
@@ -262,16 +331,15 @@ unsafe fn create_instance(window: &Window, entry: &Entry) -> Result<Instance> {
         Vec::new()
     };
 
+    // Extensions
+
     let mut extensions = vk_window::get_required_instance_extensions(window)
         .iter()
         .map(|e| e.as_ptr())
         .collect::<Vec<_>>();
 
     // Required by Vulkan SDK on macOS since 1.3.216.
-    let flags = if 
-        cfg!(target_os = "macos") && 
-        entry.version()? >= PORTABILITY_MACOS_VERSION
-    {
+    let flags = if cfg!(target_os = "macos") && entry.version()? >= PORTABILITY_MACOS_VERSION {
         info!("Enabling extensions for macOS portability.");
         extensions.push(vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_EXTENSION.name.as_ptr());
         extensions.push(vk::KHR_PORTABILITY_ENUMERATION_EXTENSION.name.as_ptr());
@@ -279,6 +347,12 @@ unsafe fn create_instance(window: &Window, entry: &Entry) -> Result<Instance> {
     } else {
         vk::InstanceCreateFlags::empty()
     };
+
+    if VALIDATION_ENABLED {
+        extensions.push(vk::EXT_DEBUG_UTILS_EXTENSION.name.as_ptr());
+    }
+
+    // Create
 
     let info = vk::InstanceCreateInfo::builder()
         .application_info(&application_info)
@@ -437,7 +511,7 @@ unsafe fn create_logical_device(
 
     let mut info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_infos)
-        .enabled_layer_names(&layers)
+        // .enabled_layer_names(&layers)
         .enabled_extension_names(&extensions)
         .enabled_features(&features);
     info.enabled_layer_count = 0;
@@ -620,24 +694,28 @@ unsafe fn create_swapchain_image_views(
 use vulkanalia::bytecode::Bytecode;
 use vulkanalia::vk::ShaderStageFlags;
 
-use crate::vulkan::obj::{INDICES, Vertex, create_index_buffer, create_vertex_buffer};
+use crate::vulkan::obj::{INDICES, Mat4, UniformBufferObject, Vertex, create_index_buffer, create_uniform_buffers, create_vertex_buffer};
 
 unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
+    // Stages
+
     let vert = include_bytes!("../../shader/.spv/vert.spv");
     let frag = include_bytes!("../../shader/.spv/frag.spv");
 
     let vert_shader_module = create_shader_module(device, &vert[..])?;
     let frag_shader_module = create_shader_module(device, &frag[..])?;
 
-    let vert_stage =vk::PipelineShaderStageCreateInfo::builder()
-        .stage(ShaderStageFlags::VERTEX)
+    let vert_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::VERTEX)
         .module(vert_shader_module)
         .name(b"main\0");
-    let frag_stage =vk::PipelineShaderStageCreateInfo::builder()
-        .stage(ShaderStageFlags::FRAGMENT)
+
+    let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::FRAGMENT)
         .module(frag_shader_module)
-        .name(b"main\0"); // Function Name Entrypoint
-    // .specialization_info() // Can be used to define constant var in the shader code
+        .name(b"main\0");
+
+    // Vertex Input State
 
     let binding_descriptions = &[Vertex::binding_description()];
     let attribute_descriptions = Vertex::attribute_descriptions();
@@ -645,9 +723,14 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
         .vertex_binding_descriptions(binding_descriptions)
         .vertex_attribute_descriptions(&attribute_descriptions);
 
+    // Input Assembly State
+
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
         .topology(vk::PrimitiveTopology::POINT_LIST)
         .primitive_restart_enable(false);
+
+    // Viewport State
+
     let viewport = vk::Viewport::builder()
         .x(0.0)
         .y(0.0)
@@ -655,34 +738,40 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
         .height(data.swapchain_extent.height as f32)
         .min_depth(0.0)
         .max_depth(1.0);
+
     let scissor = vk::Rect2D::builder()
         .offset(vk::Offset2D { x: 0, y: 0 })
         .extent(data.swapchain_extent);
+
     let viewports = &[viewport];
     let scissors = &[scissor];
     let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
         .viewports(viewports)
         .scissors(scissors);
+
+    // Rasterization State
+
     let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
         .depth_clamp_enable(false)
         .rasterizer_discard_enable(false)
-        .polygon_mode(vk::PolygonMode::FILL) // Determine if you have full/line/point  (other that full require gpu feature)
+        .polygon_mode(vk::PolygonMode::FILL)
         .line_width(1.0)
         .cull_mode(vk::CullModeFlags::BACK)
-        .front_face(vk::FrontFace::CLOCKWISE)
+        .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
-    let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder() // Basicly Anti-aliasing
+
+    // Multisample State
+
+    let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
         .sample_shading_enable(false)
         .rasterization_samples(vk::SampleCountFlags::_1);
-    let attachment = vk::PipelineColorBlendAttachmentState::builder() // https://kylemayes.github.io/vulkanalia/pipeline/fixed_functions.html#color-blending
+
+    // Color Blend State
+
+    let attachment = vk::PipelineColorBlendAttachmentState::builder()
         .color_write_mask(vk::ColorComponentFlags::all())
-        .blend_enable(false)
-        .src_color_blend_factor(vk::BlendFactor::ONE)  // Optional
-        .dst_color_blend_factor(vk::BlendFactor::ZERO) // Optional
-        .color_blend_op(vk::BlendOp::ADD)              // Optional
-        .src_alpha_blend_factor(vk::BlendFactor::ONE)  // Optional
-        .dst_alpha_blend_factor(vk::BlendFactor::ZERO) // Optional
-        .alpha_blend_op(vk::BlendOp::ADD);             // Optional
+        .blend_enable(false);
+
     let attachments = &[attachment];
     let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
         .logic_op_enable(false)
@@ -690,9 +779,15 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
         .attachments(attachments)
         .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
-    let layout_info = vk::PipelineLayoutCreateInfo::builder();
+    // Layout
+
+    let set_layouts = &[data.descriptor_set_layout];
+    let layout_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(set_layouts);
 
     data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
+
+    // Create
+
     let stages = &[vert_stage, frag_stage];
     let info = vk::GraphicsPipelineCreateInfo::builder()
         .stages(stages)
@@ -706,13 +801,17 @@ unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
         .render_pass(data.render_pass)
         .subpass(0);
 
-        data.pipeline = device.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None)?.0[0];
+    data.pipeline = device
+        .create_graphics_pipelines(vk::PipelineCache::null(), &[info], None)?
+        .0[0];
+
+    // Cleanup
 
     device.destroy_shader_module(vert_shader_module, None);
     device.destroy_shader_module(frag_shader_module, None);
+
     Ok(())
 }
-
 unsafe fn create_shader_module(
     device: &Device,
     bytecode: &[u8],
@@ -842,7 +941,15 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
         device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
         device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
         device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT16);
-        // device.cmd_draw(*command_buffer, VERTICES.len() as u32, 1, 0, 0);
+
+        device.cmd_bind_descriptor_sets(
+            *command_buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            data.pipeline_layout,
+            0,
+            &[data.descriptor_sets[i]],
+            &[],
+        );
         device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
 
         device.cmd_end_render_pass(*command_buffer);
@@ -964,10 +1071,8 @@ pub unsafe fn copy_buffer(
     Ok(())
 }
 
-unsafe fn create_descriptor_set_layout(
-    device: &Device,
-    data: &mut AppData,
-) -> Result<()> {
+
+unsafe fn create_descriptor_set_layout(device: &Device, data: &mut AppData) -> Result<()> {
     let ubo_binding = vk::DescriptorSetLayoutBinding::builder()
         .binding(0)
         .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -975,14 +1080,56 @@ unsafe fn create_descriptor_set_layout(
         .stage_flags(vk::ShaderStageFlags::VERTEX);
 
     let bindings = &[ubo_binding];
-    let info = vk::DescriptorSetLayoutCreateInfo::builder()
-        .bindings(bindings);
+    let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(bindings);
 
     data.descriptor_set_layout = device.create_descriptor_set_layout(&info, None)?;
 
-    let set_layouts = &[data.descriptor_set_layout];
-    let layout_info = vk::PipelineLayoutCreateInfo::builder()
-        .set_layouts(set_layouts);
+    Ok(())
+}
+
+unsafe fn create_descriptor_pool(device: &Device, data: &mut AppData) -> Result<()> {
+    let ubo_size = vk::DescriptorPoolSize::builder()
+        .type_(vk::DescriptorType::UNIFORM_BUFFER)
+        .descriptor_count(data.swapchain_images.len() as u32);
+
+    let pool_sizes = &[ubo_size];
+    let info = vk::DescriptorPoolCreateInfo::builder()
+        .pool_sizes(pool_sizes)
+        .max_sets(data.swapchain_images.len() as u32);
+
+    data.descriptor_pool = device.create_descriptor_pool(&info, None)?;
+
+    Ok(())
+}
+
+unsafe fn create_descriptor_sets(device: &Device, data: &mut AppData) -> Result<()> {
+    // Allocate
+
+    let layouts = vec![data.descriptor_set_layout; data.swapchain_images.len()];
+    let info = vk::DescriptorSetAllocateInfo::builder()
+        .descriptor_pool(data.descriptor_pool)
+        .set_layouts(&layouts);
+
+    data.descriptor_sets = device.allocate_descriptor_sets(&info)?;
+
+    // Update
+
+    for i in 0..data.swapchain_images.len() {
+        let info = vk::DescriptorBufferInfo::builder()
+            .buffer(data.uniform_buffers[i])
+            .offset(0)
+            .range(size_of::<UniformBufferObject>() as u64);
+
+        let buffer_info = &[info];
+        let ubo_write = vk::WriteDescriptorSet::builder()
+            .dst_set(data.descriptor_sets[i])
+            .dst_binding(0)
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .buffer_info(buffer_info);
+
+        device.update_descriptor_sets(&[ubo_write], &[] as &[vk::CopyDescriptorSet]);
+    }
 
     Ok(())
 }
