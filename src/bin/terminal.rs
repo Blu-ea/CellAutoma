@@ -1,25 +1,25 @@
 use game_life::{config::*, game::Context};
-use core::time;
-use std::{io::stdin, process::exit, time::Instant, env};
-
+use std::{env, io::stdin, process::exit, time::Instant};
 
 fn main() {
     let filename = env::args().nth(1);
-    if filename.is_none() { return eprintln!("Error: missing arg filename")}
+    if filename.is_none() {
+        return eprintln!("Error: missing arg filename");
+    }
 
     let config: Config = match Config::from_file(filename.unwrap()) {
         Err(e) => {
             eprintln!("Error: {e}");
             exit(1);
         }
-        Ok(config) => config
+        Ok(config) => config,
     };
 
     let mut context = Context::new(config);
 
     for n in -100..100 {
         for m in -100..100 {
-            context.map.set(n, m, rand::random::<CellID>()%2);
+            context.map.set(n, m, rand::random::<CellID>() % 2);
             // context.map.set(n, m, 1);
         }
     }
@@ -51,14 +51,15 @@ fn main() {
         // (1, 0),
         // (3, 1),
         // (0, 2), (1, 2), (4, 2), (5, 2), (6, 2),
-        
-        // // R-pentomino
-        (1, 0), (2, 0),
-        (0, 1), (1, 1),
-        (1, 2),
 
+        // // R-pentomino
+        (1, 0),
+        (2, 0),
+        (0, 1),
+        (1, 1),
+        (1, 2),
     ];
-    for (x, y) in _custom_struct{
+    for (x, y) in _custom_struct {
         context.map.set(x, y, 1);
     }
 
@@ -68,7 +69,7 @@ fn main() {
 
     // context.map.display_term(0, 0, 10);
     // print!("\x1b[H"); // Move cursor to top left corner of terminal
-    loop{
+    loop {
         print!("\x1b[s");
         context.map.display_term(0, 0, 100);
         // sleep(time::Duration::from_millis(20));
@@ -93,4 +94,3 @@ fn main() {
     // context.update();
     // context.map.display_term(0, 0, 10);
 }
-

@@ -17,7 +17,6 @@ pub struct Engine {
     pub simulation_dist: u8,
 }
 
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CellInfo {
     pub id: CellID,
@@ -40,35 +39,32 @@ pub struct Config {
     pub id_to_string: Option<HashMap<CellID, String>>,
 }
 
-
 impl Config {
-
     pub fn from_file(filename: String) -> Result<Self, Box<dyn std::error::Error>> {
         let content: String = fs::read_to_string(filename)?;
         let mut config: Config = toml::from_str(&content)?;
-        let mut id_to_string:HashMap<CellID, String> = Default::default();
-        for (name, info) in &config.cells{
+        let mut id_to_string: HashMap<CellID, String> = Default::default();
+        for (name, info) in &config.cells {
             id_to_string.entry(info.id).insert_entry(name.clone());
         }
         config.id_to_string = Some(id_to_string);
         Ok(config)
     }
-
 }
 
-
 impl CellInfo {
-    pub fn update(&self, surounding: &[u8; CELL_ID_MAX]) -> CellID{
-        for rule in &self.rules{
+    pub fn update(&self, surounding: &[u8; CELL_ID_MAX]) -> CellID {
+        for rule in &self.rules {
             // println!("{surounding:?} -- {}", self.id);
             // println!("{:?}", self.rules);
             // let mut _s = String ::new();
             // _ = stdin().read_line(&mut _s);
-            if surounding[rule.look_for[0] as usize] >= rule.min && surounding[rule.look_for[0] as usize] <= rule.max
-                {
-                    // println!("{surounding:?} -- {}", self.id);
-                    return rule.next_state;
-                }
+            if surounding[rule.look_for[0] as usize] >= rule.min
+                && surounding[rule.look_for[0] as usize] <= rule.max
+            {
+                // println!("{surounding:?} -- {}", self.id);
+                return rule.next_state;
+            }
         }
         self.id
     }
