@@ -147,13 +147,36 @@ pub unsafe fn create_index_buffer(
 // Square formation
 pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 pub static mut VERTICES: [Vertex; 4] = [
-    Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0)),
-    Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0)),
-    Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0)),
-    Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0)),
+    Vertex::new(vec2(0.0, 0.0), vec3(1.0, 0.0, 0.0)),
+    Vertex::new(vec2(1.0, 0.0), vec3(0.0, 1.0, 0.0)),
+    Vertex::new(vec2(1.0, 1.0), vec3(0.0, 0.0, 1.0)),
+    Vertex::new(vec2(0.0, 1.0), vec3(1.0, 1.0, 1.0)),
 ];
 
-
+// pub const INDICES: &[u16] = &[
+//     // front (+Z)
+//     0, 1, 2, 2, 3, 0,
+//     // back (-Z)
+//     5, 4, 7, 7, 6, 5,
+//     // left (-X)
+//     4, 0, 3, 3, 7, 4,
+//     // right (+X)
+//     1, 5, 6, 6, 2, 1,
+//     // top (+Y)
+//     3, 2, 6, 6, 7, 3,
+//     // bottom (-Y)
+//     4, 5, 1, 1, 0, 4,
+// ];
+// pub static mut VERTICES: [Vertex; 8] = [
+//     Vertex::new(vec3(-1.0, -1.0,  1.0), vec3(1.0, 0.0, 0.0)), // 0
+//     Vertex::new(vec3( 1.0, -1.0,  1.0), vec3(0.0, 1.0, 0.0)), // 1
+//     Vertex::new(vec3( 1.0,  1.0,  1.0), vec3(0.0, 0.0, 1.0)), // 2
+//     Vertex::new(vec3(-1.0,  1.0,  1.0), vec3(1.0, 1.0, 0.0)), // 3
+//     Vertex::new(vec3(-1.0, -1.0, -1.0), vec3(1.0, 0.0, 1.0)), // 4
+//     Vertex::new(vec3( 1.0, -1.0, -1.0), vec3(0.0, 1.0, 1.0)), // 5
+//     Vertex::new(vec3( 1.0,  1.0, -1.0), vec3(1.0, 1.0, 1.0)), // 6
+//     Vertex::new(vec3(-1.0,  1.0, -1.0), vec3(0.5, 0.5, 0.5)), // 7
+// ];
 
 pub unsafe fn update_vertex_buffer(
     instance: &Instance,

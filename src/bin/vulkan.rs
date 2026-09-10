@@ -1,13 +1,11 @@
 use anyhow::Result;
-use cgmath::{vec2, vec3};
-use game_life::vulkan::obj::{VERTICES, Vertex, update_vertex_buffer};
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
-use winit::event::DeviceEvent::{Motion, MouseMotion};
+use winit::dpi::LogicalSize;
+use winit::event::DeviceEvent::MouseMotion;
 use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::EventLoop;
-use winit::keyboard::KeyCode::{Escape, KeyO, KeyP, KeyR, KeyS, ShiftLeft, Space};
+use winit::keyboard::KeyCode::{Escape, KeyA, KeyD, KeyE, KeyQ, KeyS, KeyW, ShiftLeft, Space};
 use winit::keyboard::PhysicalKey::Code;
-use winit::window::{Window, WindowBuilder, CursorGrabMode};
+use winit::window::{CursorGrabMode, WindowBuilder};
 
 use game_life::vulkan::App;
 
@@ -46,32 +44,48 @@ fn main() -> Result<()> {
                 unsafe { app.destroy(); }
             }
 
-            match_key_pressed!(KeyP) => {println!("KeyP");unsafe{VERTICES[0] = Vertex::new(vec2(-0.5, -0.5), vec3(0.0, 1.0, 1.0));update_vertex_buffer(&app.instance, &app.device, &mut app.data);}}
-            match_key_pressed!(KeyO) => {println!("KeyO");unsafe{VERTICES[0] = Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0));update_vertex_buffer(&app.instance, &app.device, &mut app.data);}}
+            match_key_pressed!(KeyE) => { println!("Camera pos - {:?}", app.camera.pos) }
+            match_key_pressed!(KeyQ) => { println!("Control - {:?}", app.control) }
+
             // match_key_pressed!(KeyR) => {println!("KeyR");unsafe{let _ = update_vertex_buffer(&app.instance, &app.device, &mut app.data);window.request_redraw();}}
-            
-            match_key_pressed!(Space) => {println!("Rising : {:?}", app.data.camera_pos);app.data.camera_pos.0.z += 0.1}
-            match_key_pressed!(ShiftLeft) => {println!("Lowering : {:?}", app.data.camera_pos);app.data.camera_pos.0.z -= 0.1}
+            Event::WindowEvent { event: WindowEvent::KeyboardInput{ .. }, .. } => {
+                bind_movement_keys!(event, app.control, {
+                    Space     => up,
+                    ShiftLeft => down,
+                    KeyW      => forward,
+                    KeyS      => back,
+                    KeyA      => left,
+                    KeyD      => right,
+                })
+            }
 
             Event::WindowEvent {event: WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left , .. }, .. } => {
                 match cursor_grabed{
                     true => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::None){
                                 println!("Error {err:?}");
-                            } else {cursor_grabed = false }}
-                    false => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::Confined){
+                            } else {
+                                window.set_cursor_visible(true);
+                                cursor_grabed = false 
+                            }
+                        }
+                    false => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::Locked){
                                 println!("Error {err:?}");
-                            } else {cursor_grabed = true }}
+                            } else {
+                                window.set_cursor_visible(false);
+                                cursor_grabed = true 
+                            }
+                        }
                 }
-                println!("Cursor {:?}", if cursor_grabed {"Confined"} else {"None"})
+                println!("Cursor {:?}", if cursor_grabed {"Locked"} else {"None"})
             }
 
             Event::DeviceEvent { event: MouseMotion{delta} , ..} => {
                 // if !cursor_grabed {return}
                 let sensitivity = 0.002;
-                app.data.camera_yaw += delta.0 as f32 * sensitivity;
-                app.data.camera_pitch += delta.1 as f32 * sensitivity;
+                app.camera.yaw -= delta.0 as f32 * sensitivity;
+                app.camera.pitch -= delta.1 as f32 * sensitivity;
 
-                app.data.camera_pitch = app.data.camera_pitch.clamp(
+                app.camera.pitch = app.camera.pitch.clamp(
                     -std::f32::consts::FRAC_PI_2 + 0.01,
                     std::f32::consts::FRAC_PI_2 - 0.01,
                 );
@@ -86,8 +100,27 @@ fn main() -> Result<()> {
 
 #[macro_export]
 macro_rules! match_key_pressed {
-    ($key:tt) => {
+    ($key:pat) => {
         Event::WindowEvent { event: WindowEvent::KeyboardInput {event: KeyEvent{physical_key: Code($key), state: winit::event::ElementState::Pressed, repeat: false, ..}, ..}, ..}
     };
 }
 
+#[macro_export]
+macro_rules! match_key_released {
+    ($key:pat) => {
+        Event::WindowEvent { event: WindowEvent::KeyboardInput {event: KeyEvent{physical_key: Code($key), state: winit::event::ElementState::Released, repeat: false, ..}, ..}, ..}
+    };
+}
+
+#[macro_export]
+macro_rules! bind_movement_keys {
+    ($event:expr, $control:expr, { $($key:tt => $field:ident),* $(,)? }) => {
+        match $event {
+            $(
+                match_key_pressed!($key) => { $control.$field = true; }
+                match_key_released!($key) => { $control.$field = false; }
+            )*
+            _ => {}
+        }
+    };
+}

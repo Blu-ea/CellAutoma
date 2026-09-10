@@ -38,6 +38,9 @@ pub struct App {
     frame: usize,
     pub resized: bool,
     start: Instant,
+
+    pub camera: CameraData,
+    pub control: ControlData,
 }
 
 impl App {
@@ -64,8 +67,8 @@ impl App {
         create_descriptor_sets(&device, &mut data)?;
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
-        data.camera_pitch = 0.0;
-        data.camera_pitch = 0.0;
+        let camera = CameraData { yaw: 0.0, pitch: 0.0, pos: Point3 { x: 0.0, y: 0.0, z: 0.0 } };
+        let control = ControlData::default();
         Ok(Self {
             entry,
             instance,
@@ -73,6 +76,8 @@ impl App {
             device,
             frame: 0,
             resized: false,
+            camera,
+            control,
             start: Instant::now(),
         })
     }
@@ -149,6 +154,7 @@ impl App {
 
         self.frame = (self.frame + 1) % MAX_FRAMES_IN_FLIGHT;
         Ok(())
+
     }
 
     pub unsafe fn recreate_swapchain(&mut self, window: &Window) -> Result<()> {
@@ -231,16 +237,40 @@ impl App {
         self.device.destroy_swapchain_khr(self.data.swapchain, None);
     }
 
-    unsafe fn update_uniform_buffer(&self, image_index: usize) -> Result<()> {
+    unsafe fn update_uniform_buffer(&mut self, image_index: usize) -> Result<()> {
         let time = self.start.elapsed().as_secs_f32();
-        
+
         let model = Mat4::from_axis_angle(
             vec3(0.0, 0.0, 1.0),
-            Deg(180.0)
+            Deg(360.0) * time
         );
-        let yaw = self.data.camera_yaw as f32;
-        let pitch = self.data.camera_pitch as f32;
-        let position = self.data.camera_pos.0;
+        let yaw = self.camera.yaw as f32;
+        let pitch = self.camera.pitch as f32;
+
+
+        if self.control.up { self.camera.pos.z += 0.001; }
+        if self.control.down { self.camera.pos.z -= 0.001; }
+
+        if self.control.forward { 
+            self.camera.pos.x += 0.001 * yaw.cos();
+            self.camera.pos.y += 0.001 * yaw.sin();
+            // self.camera.pos.z += 0.001 * pitch.sin();
+        }
+        if self.control.back {
+            self.camera.pos.x -= 0.001 * yaw.cos();
+            self.camera.pos.y -= 0.001 * yaw.sin(); 
+            // self.camera.pos.z -= 0.001 * pitch.sin();
+        }
+        if self.control.right {
+            self.camera.pos.x += 0.001 * yaw.sin();
+            self.camera.pos.y -= 0.001 * yaw.cos();
+        }
+        if self.control.left {
+            self.camera.pos.x -= 0.001 * yaw.sin();
+            self.camera.pos.y += 0.001 * yaw.cos();
+        }
+
+        let position = self.camera.pos;
         let direction = point3(
             position.x + yaw.cos() * pitch.cos(),
             position.y + yaw.sin() * pitch.cos(),
@@ -249,15 +279,15 @@ impl App {
         let view = Mat4::look_at_rh(
             position, // Position
             direction, // Direction
-            vec3(0.0, 0.0, 1.0),   // Up side
+            vec3(0.0, 0.0, 1.0), // Up side
         );
         let mut proj = cgmath::perspective(
             Deg(90.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
-            0.1,
-            10.0,
+            0.01,
+            100.0,
         );
-        proj[1][1] *= -1.0; // the y access is inverted by cgmath since it was created for opengl
+        proj[1][1] *= -1.0; // the y access is inverted by cgmath since it was created for opengl // Mouse motion, invert up down axis
 
         let ubo = UniformBufferObject { model, view, proj };
 
@@ -288,18 +318,18 @@ pub struct AppData {
     present_queue: vk::Queue,
     // SwapChain is used for frame buffering and more
     swapchain_format: vk::Format,
-    swapchain_extent: vk::Extent2D,
+    pub swapchain_extent: vk::Extent2D,
     swapchain: vk::SwapchainKHR,
     pub swapchain_images: Vec<vk::Image>,
     // describe how to access and witch part to access of the image.
     swapchain_image_views: Vec<vk::ImageView>,
 
-    render_pass: vk::RenderPass,
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    pipeline_layout: vk::PipelineLayout,
+    pub render_pass: vk::RenderPass,
+    pub descriptor_set_layout: vk::DescriptorSetLayout,
+    pub pipeline_layout: vk::PipelineLayout,
 
     // The Actual Pipeline !!
-    pipeline: vk::Pipeline,
+    pub pipeline: vk::Pipeline,
 
     framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
@@ -323,29 +353,26 @@ pub struct AppData {
     pub uniform_buffers_memory: Vec<vk::DeviceMemory>,
     pub descriptor_pool: vk::DescriptorPool,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
-
-    pub camera_yaw: f32,
-    pub camera_pitch: f32,
-    pub camera_pos: MyPos,
 }
 
 #[derive(Clone, Debug)]
-pub struct MyPos (pub Point3<f32>);
-
-impl Default for MyPos{
-    fn default() -> Self {
-        Self (Point3 { x: 0.0, y: 0.0, z: 0.0 })
-    }
+pub struct CameraData {
+    pub yaw: f32,
+    pub pitch: f32,
+    pub pos: Point3<f32>,
 }
 
-// impl Default for AppData {
-//     fn default() -> Self {
-//         Self{
-//             camera_pos : Point3 { x: 0.0, y: 0.0, z: 0.0 },
-//             ..Default::default()
-//         }
-//     }
-// }
+#[derive(Clone, Debug, Default)]
+pub struct ControlData {
+    pub up: bool,
+    pub down: bool,
+
+    pub left: bool,
+    pub right: bool,
+    pub forward: bool,
+    pub back: bool,
+
+}
 
 /// Whether the validation layers should be enabled.
 const VALIDATION_ENABLED: bool = cfg!(debug_assertions); // TODO : Change this to true when the package is updated
@@ -734,136 +761,11 @@ unsafe fn create_swapchain_image_views(device: &Device, data: &mut AppData) -> R
 ///////////////////////////////////////
 /// Pipeline //////////////////////////
 ///////////////////////////////////////
-use vulkanalia::bytecode::Bytecode;
-use vulkanalia::vk::ShaderStageFlags;
 
+use crate::vulkan::pipeline::create_pipeline;
 use crate::vulkan::obj::{
-    INDICES, Mat4, UniformBufferObject, Vec3, Vertex, create_index_buffer, create_uniform_buffers, create_vertex_buffer,
+    INDICES, Mat4, UniformBufferObject, create_index_buffer, create_uniform_buffers, create_vertex_buffer,
 };
-
-unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
-    // Stages
-
-    let vert = include_bytes!("../../shader/.spv/vert.spv");
-    let frag = include_bytes!("../../shader/.spv/frag.spv");
-
-    let vert_shader_module = create_shader_module(device, &vert[..])?;
-    let frag_shader_module = create_shader_module(device, &frag[..])?;
-
-    let vert_stage = vk::PipelineShaderStageCreateInfo::builder()
-        .stage(vk::ShaderStageFlags::VERTEX)
-        .module(vert_shader_module)
-        .name(b"main\0");
-
-    let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
-        .stage(vk::ShaderStageFlags::FRAGMENT)
-        .module(frag_shader_module)
-        .name(b"main\0");
-
-    // Vertex Input State
-
-    let binding_descriptions = &[Vertex::binding_description()];
-    let attribute_descriptions = Vertex::attribute_descriptions();
-    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-        .vertex_binding_descriptions(binding_descriptions)
-        .vertex_attribute_descriptions(&attribute_descriptions);
-
-    // Input Assembly State
-
-    let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(vk::PrimitiveTopology::POINT_LIST)
-        .primitive_restart_enable(false);
-
-    // Viewport State
-
-    let viewport = vk::Viewport::builder()
-        .x(0.0)
-        .y(0.0)
-        .width(data.swapchain_extent.width as f32)
-        .height(data.swapchain_extent.height as f32)
-        .min_depth(0.0)
-        .max_depth(1.0);
-
-    let scissor = vk::Rect2D::builder()
-        .offset(vk::Offset2D { x: 0, y: 0 })
-        .extent(data.swapchain_extent);
-
-    let viewports = &[viewport];
-    let scissors = &[scissor];
-    let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
-        .viewports(viewports)
-        .scissors(scissors);
-
-    // Rasterization State
-
-    let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
-        .depth_clamp_enable(false)
-        .rasterizer_discard_enable(false)
-        .polygon_mode(vk::PolygonMode::FILL)
-        .line_width(1.0)
-        .cull_mode(vk::CullModeFlags::BACK)
-        .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
-        .depth_bias_enable(false);
-
-    // Multisample State
-
-    let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
-        .sample_shading_enable(false)
-        .rasterization_samples(vk::SampleCountFlags::_1);
-
-    // Color Blend State
-
-    let attachment = vk::PipelineColorBlendAttachmentState::builder()
-        .color_write_mask(vk::ColorComponentFlags::all())
-        .blend_enable(false);
-
-    let attachments = &[attachment];
-    let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-        .logic_op_enable(false)
-        .logic_op(vk::LogicOp::COPY)
-        .attachments(attachments)
-        .blend_constants([0.0, 0.0, 0.0, 0.0]);
-
-    // Layout
-
-    let set_layouts = &[data.descriptor_set_layout];
-    let layout_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(set_layouts);
-
-    data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
-
-    // Create
-
-    let stages = &[vert_stage, frag_stage];
-    let info = vk::GraphicsPipelineCreateInfo::builder()
-        .stages(stages)
-        .vertex_input_state(&vertex_input_state)
-        .input_assembly_state(&input_assembly_state)
-        .viewport_state(&viewport_state)
-        .rasterization_state(&rasterization_state)
-        .multisample_state(&multisample_state)
-        .color_blend_state(&color_blend_state)
-        .layout(data.pipeline_layout)
-        .render_pass(data.render_pass)
-        .subpass(0);
-
-    data.pipeline = device
-        .create_graphics_pipelines(vk::PipelineCache::null(), &[info], None)?
-        .0[0];
-
-    // Cleanup
-
-    device.destroy_shader_module(vert_shader_module, None);
-    device.destroy_shader_module(frag_shader_module, None);
-
-    Ok(())
-}
-unsafe fn create_shader_module(device: &Device, bytecode: &[u8]) -> Result<vk::ShaderModule> {
-    let bytecode = Bytecode::new(bytecode).unwrap();
-    let info = vk::ShaderModuleCreateInfo::builder()
-        .code(bytecode.code())
-        .code_size(bytecode.code_size());
-    Ok(device.create_shader_module(&info, None)?)
-}
 
 unsafe fn create_render_pass(
     instance: &Instance,
