@@ -21,8 +21,8 @@ pub unsafe fn create_shader_module(device: &Device, bytecode: &[u8]) -> Result<v
 pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
     // Stages
 
-    let vert = include_bytes!("../../shader/.spv/vert.spv");
-    let frag = include_bytes!("../../shader/.spv/frag.spv");
+    let vert = include_bytes!("../../shader/.spv/main/vert.spv");
+    let frag = include_bytes!("../../shader/.spv/main/frag.spv");
 
     let vert_shader_module = create_shader_module(device, &vert[..])?;
     let frag_shader_module = create_shader_module(device, &frag[..])?;
@@ -76,7 +76,7 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
     let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
         .depth_clamp_enable(false)
         .rasterizer_discard_enable(false)
-        .polygon_mode(vk::PolygonMode::LINE)
+        .polygon_mode(vk::PolygonMode::FILL)
         .line_width(1.0)
         .cull_mode(vk::CullModeFlags::NONE)
         .front_face(vk::FrontFace::CLOCKWISE)
@@ -136,12 +136,11 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
 }
 
 
-
 pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
     // Stages
 
-    let vert = include_bytes!("../../shader/.spv/vert.spv");
-    let frag = include_bytes!("../../shader/.spv/frag.spv");
+    let vert = include_bytes!("../../shader/.spv/grid/vert.spv");
+    let frag = include_bytes!("../../shader/.spv/grid/frag.spv");
 
     let vert_shader_module = create_shader_module(device, &vert[..])?;
     let frag_shader_module = create_shader_module(device, &frag[..])?;
@@ -195,7 +194,7 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
     let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
         .depth_clamp_enable(false)
         .rasterizer_discard_enable(false)
-        .polygon_mode(vk::PolygonMode::LINE)
+        .polygon_mode(vk::PolygonMode::FILL)
         .line_width(1.0)
         .cull_mode(vk::CullModeFlags::NONE)
         .front_face(vk::FrontFace::CLOCKWISE)
@@ -225,7 +224,7 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
     let set_layouts = &[data.descriptor_set_layout];
     let layout_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(set_layouts);
 
-    data.pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
+    // data.grid_pipeline_layout = device.create_pipeline_layout(&layout_info, None)?;
 
     // Create
 
@@ -242,7 +241,7 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
         .render_pass(data.render_pass)
         .subpass(0);
 
-    data.pipeline = device
+    data.grid_pipeline = device
         .create_graphics_pipelines(vk::PipelineCache::null(), &[info], None)?
         .0[0];
 

@@ -58,6 +58,7 @@ impl App {
         create_render_pass(&instance, &device, &mut data)?;
         create_descriptor_set_layout(&device, &mut data)?;
         create_pipeline(&device, &mut data)?;
+        create_grid_pipeline(&device, &mut data)?;
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
@@ -164,6 +165,7 @@ impl App {
         create_swapchain_image_views(&self.device, &mut self.data)?;
         create_render_pass(&self.instance, &self.device, &mut self.data)?;
         create_pipeline(&self.device, &mut self.data)?;
+        create_grid_pipeline(&self.device, &mut self.data)?;
         create_framebuffers(&self.device, &mut self.data)?;
         create_uniform_buffers(&self.instance, &self.device, &mut self.data)?;
         create_descriptor_pool(&self.device, &mut self.data)?;
@@ -227,8 +229,8 @@ impl App {
         self.device
             .free_command_buffers(self.data.command_pool, &self.data.command_buffers);
         self.device.destroy_pipeline(self.data.pipeline, None);
-        self.device
-            .destroy_pipeline_layout(self.data.pipeline_layout, None);
+        self.device.destroy_pipeline(self.data.grid_pipeline, None);
+        self.device.destroy_pipeline_layout(self.data.pipeline_layout, None);
         self.device.destroy_render_pass(self.data.render_pass, None);
         self.data
             .swapchain_image_views
@@ -287,6 +289,14 @@ impl App {
             0.01,
             100.0,
         );
+        #[rustfmt::skip]
+        pub const VULKAN_CORRECTION: Mat4 = Mat4::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            0.0, 0.0, 0.5, 1.0,
+        );
+        proj = VULKAN_CORRECTION * proj;
         proj[1][1] *= -1.0; // the y access is inverted by cgmath since it was created for opengl // Mouse motion, invert up down axis
 
         let ubo = UniformBufferObject { model, view, proj };
@@ -330,6 +340,9 @@ pub struct AppData {
 
     // The Actual Pipeline !!
     pub pipeline: vk::Pipeline,
+
+    // The Actual Pipeline !!
+    pub grid_pipeline: vk::Pipeline,
 
     framebuffers: Vec<vk::Framebuffer>,
     command_pool: vk::CommandPool,
@@ -762,7 +775,7 @@ unsafe fn create_swapchain_image_views(device: &Device, data: &mut AppData) -> R
 /// Pipeline //////////////////////////
 ///////////////////////////////////////
 
-use crate::vulkan::pipeline::create_pipeline;
+use crate::vulkan::pipeline::{create_grid_pipeline, create_pipeline};
 use crate::vulkan::obj::{
     INDICES, Mat4, UniformBufferObject, create_index_buffer, create_uniform_buffers, create_vertex_buffer,
 };
@@ -885,14 +898,9 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
             .clear_values(clear_values);
         device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
 
-        device.cmd_bind_pipeline(
-            *command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            data.pipeline,
-        );
+        device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
         device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
         device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT16);
-
         device.cmd_bind_descriptor_sets(
             *command_buffer,
             vk::PipelineBindPoint::GRAPHICS,
@@ -903,8 +911,19 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
         );
         device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
 
-        device.cmd_end_render_pass(*command_buffer);
-        device.end_command_buffer(*command_buffer)?;
+        // Now draw the grid with its own pipeline
+        device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.grid_pipeline);
+        device.cmd_bind_descriptor_sets(
+            *command_buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            data.pipeline_layout,
+            0,
+            &[data.descriptor_sets[i]], // only correct if the layouts are compatible
+            &[],
+        );
+        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);        
+            device.cmd_end_render_pass(*command_buffer);
+            device.end_command_buffer(*command_buffer)?;
     }
 
     Ok(())
