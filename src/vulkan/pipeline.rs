@@ -166,7 +166,7 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
     // Input Assembly State
 
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+        .topology(vk::PrimitiveTopology::TRIANGLE_STRIP)
         .primitive_restart_enable(false);
 
     // Viewport State

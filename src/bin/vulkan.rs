@@ -44,8 +44,8 @@ fn main() -> Result<()> {
                 unsafe { app.destroy(); }
             }
 
-            match_key_pressed!(KeyE) => { println!("Camera pos - {:?}", app.camera.pos) }
-            match_key_pressed!(KeyQ) => { println!("Control - {:?}", app.control) }
+            match_key_pressed!(KeyE) => { println!("Camera info - {:?}", app.camera) }
+            match_key_pressed!(KeyQ) => { println!("Control info - {:?}", app.control) }
 
             // match_key_pressed!(KeyR) => {println!("KeyR");unsafe{let _ = update_vertex_buffer(&app.instance, &app.device, &mut app.data);window.request_redraw();}}
             Event::WindowEvent { event: WindowEvent::KeyboardInput{ .. }, .. } => {
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
             }
 
             Event::DeviceEvent { event: MouseMotion{delta} , ..} => {
-                // if !cursor_grabed {return}
+                if !cursor_grabed {return}
                 let sensitivity = 0.002;
                 app.camera.yaw -= delta.0 as f32 * sensitivity;
                 app.camera.pitch -= delta.1 as f32 * sensitivity;

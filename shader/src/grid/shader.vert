@@ -1,4 +1,12 @@
-#version 450
+#version 450 core
+
+
+const vec4 positions[4] = vec4[4](
+    vec4(-0.5,  0.5, 0.0, 1.0),
+    vec4( 0.5,  0.5, 0.0, 1.0),
+    vec4(-0.5, -0.5, 0.0, 1.0),
+    vec4( 0.5, -0.5, 0.0, 1.0)
+);
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
@@ -6,13 +14,15 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } ubo;
 
-layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 0) out vec2 coords;
 
-layout(location = 0) out vec3 fragColor;
+invariant gl_Position;
 
-void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, -0.1, 1.0);
-    // gl_PointSize = 10.0; // Use for POINT_LIST instead of TRIANGLE_LIST
-    fragColor = inColor;
+void main()
+{
+    vec4 world_pos = positions[gl_VertexIndex];
+    world_pos.xy *= 100.0f; // grid size
+
+    gl_Position = ubo.proj * ubo.view * world_pos;
+    coords = world_pos.xy;
 }

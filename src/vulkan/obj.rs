@@ -99,7 +99,7 @@ pub unsafe fn create_vertex_buffer(
 
 pub unsafe fn create_index_buffer(
     instance: &Instance,
-    device: &Device,    
+    device: &Device,
     data: &mut AppData,
 ) -> Result<()> {
     let size = (size_of::<u16>() * INDICES.len()) as u64;

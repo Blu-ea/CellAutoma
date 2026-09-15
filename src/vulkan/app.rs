@@ -68,7 +68,7 @@ impl App {
         create_descriptor_sets(&device, &mut data)?;
         create_command_buffers(&device, &mut data)?;
         create_sync_objects(&device, &mut data)?;
-        let camera = CameraData { yaw: 0.0, pitch: 0.0, pos: Point3 { x: 0.0, y: 0.0, z: 0.0 } };
+        let camera = CameraData::default();
         let control = ControlData::default();
         Ok(Self {
             entry,
@@ -287,7 +287,7 @@ impl App {
             Deg(90.0),
             self.data.swapchain_extent.width as f32 / self.data.swapchain_extent.height as f32,
             0.01,
-            100.0,
+            1000.0,
         );
         #[rustfmt::skip]
         pub const VULKAN_CORRECTION: Mat4 = Mat4::new(
@@ -373,6 +373,15 @@ pub struct CameraData {
     pub yaw: f32,
     pub pitch: f32,
     pub pos: Point3<f32>,
+}
+impl Default for CameraData {
+    fn default() -> Self {
+        Self {
+            yaw: 0.0,
+            pitch: 0.0, 
+            pos: point3(0.0, 0.0, 1.0) 
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -898,32 +907,35 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
             .clear_values(clear_values);
         device.cmd_begin_render_pass(*command_buffer, &info, vk::SubpassContents::INLINE);
 
-        device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
-        device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
-        device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT16);
-        device.cmd_bind_descriptor_sets(
-            *command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            data.pipeline_layout,
-            0,
-            &[data.descriptor_sets[i]],
-            &[],
-        );
-        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
-
-        // Now draw the grid with its own pipeline
-        device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.grid_pipeline);
-        device.cmd_bind_descriptor_sets(
-            *command_buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            data.pipeline_layout,
-            0,
-            &[data.descriptor_sets[i]], // only correct if the layouts are compatible
-            &[],
-        );
-        device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);        
-            device.cmd_end_render_pass(*command_buffer);
-            device.end_command_buffer(*command_buffer)?;
+        {
+            // Now draw the grid with its own pipeline
+            device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.grid_pipeline);
+            device.cmd_bind_descriptor_sets(
+                *command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                data.pipeline_layout,
+                0,
+                &[data.descriptor_sets[i]],
+                &[],
+            );
+            device.cmd_draw(*command_buffer, 4, 1, 0, 0);
+        }
+        {
+            device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
+            device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
+            device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT16);
+            device.cmd_bind_descriptor_sets(
+                *command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                data.pipeline_layout,
+                0,
+                &[data.descriptor_sets[i]],
+                &[],
+            );
+            device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
+        }
+        device.cmd_end_render_pass(*command_buffer);
+        device.end_command_buffer(*command_buffer)?;
     }
 
     Ok(())
