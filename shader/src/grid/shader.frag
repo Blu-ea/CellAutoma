@@ -6,8 +6,8 @@ const float half_cell_size = cell_size * 0.5f;
 const float subcell_size = 1.0f;
 const float half_subcell_size = subcell_size * 0.5f;
 
-const float cell_line_thickness    = 0.01f;
-const float subcell_line_thickness = 0.001f;
+const float cell_line_thickness    = 0.05f;
+const float subcell_line_thickness = 0.005f;
 
 const vec4 cell_colour    = vec4( 0.75, 0.75, 0.75, 0.5 );
 const vec4 subcell_colour = vec4(  0.5,  0.0,  0.0, 0.5 );
@@ -23,8 +23,8 @@ vec2 distance_to_cell    = abs( cell_coords    - half_cell_size    );
 vec2 distance_to_subcell = abs( subcell_coords - half_subcell_size );
 
 vec2 d = fwidth(coords);
-vec2 adjusted_cell_line_thickness    = 0.5 * ( cell_line_thickness    + d );
-vec2 adjusted_subcell_line_thickness = 0.5 * ( subcell_line_thickness + d );
+vec2 adjusted_cell_line_thickness    = ( cell_line_thickness    + d );
+vec2 adjusted_subcell_line_thickness = ( subcell_line_thickness + d );
 
 
 

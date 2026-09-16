@@ -244,44 +244,32 @@ impl App {
 
         let model = Mat4::from_axis_angle(
             vec3(0.0, 0.0, 1.0),
-            Deg(360.0) * time
+            Deg(50.0) * time
         );
         let yaw = self.camera.yaw as f32;
         let pitch = self.camera.pitch as f32;
-
+        let height_acceleration = self.camera.pos.z + 1.0;
+        let pan_speed = 0.0005;
 
         if self.control.up { self.camera.pos.z += 0.001; }
         if self.control.down { self.camera.pos.z -= 0.001; }
 
-        if self.control.forward { 
-            self.camera.pos.x += 0.001 * yaw.cos();
-            self.camera.pos.y += 0.001 * yaw.sin();
-            // self.camera.pos.z += 0.001 * pitch.sin();
-        }
-        if self.control.back {
-            self.camera.pos.x -= 0.001 * yaw.cos();
-            self.camera.pos.y -= 0.001 * yaw.sin(); 
-            // self.camera.pos.z -= 0.001 * pitch.sin();
-        }
-        if self.control.right {
-            self.camera.pos.x += 0.001 * yaw.sin();
-            self.camera.pos.y -= 0.001 * yaw.cos();
-        }
-        if self.control.left {
-            self.camera.pos.x -= 0.001 * yaw.sin();
-            self.camera.pos.y += 0.001 * yaw.cos();
-        }
+        if self.control.forward { self.camera.pos.y += pan_speed * height_acceleration; }
+        if self.control.back { self.camera.pos.y -= pan_speed * height_acceleration; }
+        if self.control.right { self.camera.pos.x += pan_speed * height_acceleration; }
+        if self.control.left { self.camera.pos.x -= pan_speed * height_acceleration; }
 
         let position = self.camera.pos;
         let direction = point3(
-            position.x + yaw.cos() * pitch.cos(),
-            position.y + yaw.sin() * pitch.cos(),
-            position.z + pitch.sin()
+            position.x ,
+            position.y ,
+            0.0
+            // position.z
         );
         let view = Mat4::look_at_rh(
             position, // Position
             direction, // Direction
-            vec3(0.0, 0.0, 1.0), // Up side
+            vec3(0.0, 1.0, 0.0), // Up side
         );
         let mut proj = cgmath::perspective(
             Deg(90.0),
@@ -299,7 +287,7 @@ impl App {
         proj = VULKAN_CORRECTION * proj;
         proj[1][1] *= -1.0; // the y access is inverted by cgmath since it was created for opengl // Mouse motion, invert up down axis
 
-        let ubo = UniformBufferObject { model, view, proj };
+        let ubo = UniformBufferObject { model, view, proj, cam_pos: position};
 
         let memory = self.device.map_memory(
             self.data.uniform_buffers_memory[image_index],

@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use anyhow::{Ok, Result};
-use cgmath::{vec2, vec3};
+use cgmath::{Point3, vec2, vec3};
 use vulkanalia::prelude::v1_0::*;
 
 use crate::vulkan::{AppData, app::{copy_buffer, create_buffer}};
@@ -234,10 +234,12 @@ pub unsafe fn update_vertex_buffer(
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+/** This type is marked as `#[repr(C)]` */
 pub struct UniformBufferObject {
     pub model: Mat4,
     pub view: Mat4,
     pub proj: Mat4,
+    pub cam_pos: Point3<f32>,
 }
 
 // Creates one uniform buffer per swapchain image
