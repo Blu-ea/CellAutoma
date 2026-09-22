@@ -11,7 +11,7 @@ use game_life::vulkan::App;
 
 
 fn main() -> Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init(); // `RUST_LOG=trace` to print all log
 
     // Window
 
