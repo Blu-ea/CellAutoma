@@ -145,12 +145,12 @@ pub unsafe fn create_index_buffer(
 }
 
 // Square formation
-pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
-pub static mut VERTICES: [Vertex; 4] = [
-    Vertex::new(vec2(0.0, 0.0), vec3(1.0, 0.0, 0.0)),
-    Vertex::new(vec2(1.0, 0.0), vec3(0.0, 1.0, 0.0)),
-    Vertex::new(vec2(1.0, 1.0), vec3(0.0, 0.0, 1.0)),
-    Vertex::new(vec2(0.0, 1.0), vec3(1.0, 1.0, 1.0)),
+pub const INDICES: &[u16] = &[0];
+pub static mut VERTICES: [Vertex; 1] = [
+    Vertex::new(vec2(-2.0, -2.0), vec3(1.0, 0.0, 0.0)),
+    // Vertex::new(vec2(1.0, 0.0), vec3(0.0, 1.0, 0.0)),
+    // Vertex::new(vec2(1.0, 1.0), vec3(0.0, 0.0, 1.0)),
+    // Vertex::new(vec2(0.0, 1.0), vec3(1.0, 1.0, 1.0)),
 ];
 
 // pub const INDICES: &[u16] = &[

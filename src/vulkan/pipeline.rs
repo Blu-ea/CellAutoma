@@ -21,11 +21,18 @@ pub unsafe fn create_shader_module(device: &Device, bytecode: &[u8]) -> Result<v
 pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()> {
     // Stages
 
+    let geom = include_bytes!("../../shader/.spv/main/geom.spv");
     let vert = include_bytes!("../../shader/.spv/main/vert.spv");
     let frag = include_bytes!("../../shader/.spv/main/frag.spv");
 
+    let geom_shader_module = create_shader_module(device, &geom[..])?;
     let vert_shader_module = create_shader_module(device, &vert[..])?;
     let frag_shader_module = create_shader_module(device, &frag[..])?;
+
+    let geom_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::GEOMETRY)
+        .module(geom_shader_module)
+        .name(b"main\0");
 
     let vert_stage = vk::PipelineShaderStageCreateInfo::builder()
         .stage(vk::ShaderStageFlags::VERTEX)
@@ -48,7 +55,7 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
     // Input Assembly State
 
     let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
-        .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+        .topology(vk::PrimitiveTopology::POINT_LIST)
         .primitive_restart_enable(false);
 
     // Viewport State
@@ -70,6 +77,7 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
     let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
         .viewports(viewports)
         .scissors(scissors);
+
 
     // Rasterization State
 
@@ -110,7 +118,7 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
 
     // Create
 
-    let stages = &[vert_stage, frag_stage];
+    let stages = &[vert_stage, geom_stage, frag_stage];
     let info = vk::GraphicsPipelineCreateInfo::builder()
         .stages(stages)
         .vertex_input_state(&vertex_input_state)

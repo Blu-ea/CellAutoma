@@ -1,6 +1,7 @@
 use anyhow::Result;
 use winit::dpi::LogicalSize;
 use winit::event::DeviceEvent::MouseMotion;
+use winit::event::MouseScrollDelta::LineDelta;
 use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::keyboard::KeyCode::{Escape, KeyA, KeyD, KeyE, KeyQ, KeyS, KeyW, ShiftLeft, Space};
@@ -77,6 +78,10 @@ fn main() -> Result<()> {
                         }
                 }
                 println!("Cursor {:?}", if cursor_grabed {"Locked"} else {"None"})
+            }
+            Event::WindowEvent { event: WindowEvent::MouseWheel { delta: LineDelta(x, y), ..}, ..} =>{
+                app.camera.pos.z += y;
+                println!("mouse event - {:?}", (event));
             }
 
             Event::DeviceEvent { event: MouseMotion{delta} , ..} => {

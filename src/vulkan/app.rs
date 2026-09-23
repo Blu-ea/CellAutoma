@@ -248,11 +248,12 @@ impl App {
         );
         let yaw = self.camera.yaw as f32;
         let pitch = self.camera.pitch as f32;
-        let height_acceleration = self.camera.pos.z + 1.0;
+        let height_acceleration = self.camera.pos.z;
         let pan_speed = 0.0005;
 
         if self.control.up { self.camera.pos.z += 0.001; }
         if self.control.down { self.camera.pos.z -= 0.001; }
+        self.camera.pos.z = self.camera.pos.z.max(1.5);
 
         if self.control.forward { self.camera.pos.y += pan_speed * height_acceleration; }
         if self.control.back { self.camera.pos.y -= pan_speed * height_acceleration; }
@@ -263,6 +264,9 @@ impl App {
         let direction = point3(
             position.x ,
             position.y ,
+            // 0.0,
+            // 0.0,
+
             0.0
             // position.z
         );
@@ -367,7 +371,7 @@ impl Default for CameraData {
         Self {
             yaw: 0.0,
             pitch: 0.0, 
-            pos: point3(0.0, 0.0, 1.0) 
+            pos: point3(0.0, 0.0, 10.0) 
         }
     }
 }
@@ -604,8 +608,8 @@ unsafe fn create_logical_device(
         extensions.push(vk::KHR_PORTABILITY_SUBSET_EXTENSION.name.as_ptr());
     }
 
-    let features = vk::PhysicalDeviceFeatures::builder();
-
+    let features = vk::PhysicalDeviceFeatures::builder()
+        .geometry_shader(true);
     let mut info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_infos)
         // .enabled_layer_names(&layers)
