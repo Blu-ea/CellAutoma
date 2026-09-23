@@ -58,9 +58,10 @@ impl Map {
             .collect()
     }
 
-    pub fn display_term(&self, x: i16, y: i16, range: i16) {
-        for m in y - range..y + range {
-            for n in x - range..x + range {
+    pub fn display_term(&self, x: i16, y: i16, rangeX: i16, rangeY: i16) {
+
+        for m in y - rangeY..y + rangeY {
+            for n in x - rangeX..x + rangeX {
                 let id = self.get(n, m);
                 if id == 0 {
                     print!("\x1b[100m  ");

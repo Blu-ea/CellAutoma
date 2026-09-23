@@ -1,7 +1,10 @@
 use anyhow::Result;
 
 use vulkanalia::bytecode::Bytecode;
-use vulkanalia::vk::ShaderStageFlags;
+use vulkanalia::vk::{
+    PipelineRobustnessBufferBehavior,
+    ShaderStageFlags
+};
 
 use vulkanalia::prelude::v1_0::*;
 
@@ -237,6 +240,8 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
     // Create
 
     let stages = &[vert_stage, frag_stage];
+    let mut robustness_info = vk::PipelineRobustnessCreateInfo::builder()
+        .vertex_inputs(PipelineRobustnessBufferBehavior::ROBUST_BUFFER_ACCESS);
     let info = vk::GraphicsPipelineCreateInfo::builder()
         .stages(stages)
         .vertex_input_state(&vertex_input_state)
@@ -247,6 +252,7 @@ pub unsafe fn create_grid_pipeline(device: &Device, data: &mut AppData) -> Resul
         .color_blend_state(&color_blend_state)
         .layout(data.pipeline_layout)
         .render_pass(data.render_pass)
+        .push_next(&mut robustness_info)
         .subpass(0);
 
     data.grid_pipeline = device

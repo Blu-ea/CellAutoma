@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::error;
 use winit::dpi::LogicalSize;
 use winit::event::DeviceEvent::MouseMotion;
 use winit::event::MouseScrollDelta::LineDelta;
@@ -12,7 +13,7 @@ use game_life::vulkan::App;
 
 
 fn main() -> Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init(); // `RUST_LOG=trace` to print all log
 
     // Window
 
@@ -63,21 +64,22 @@ fn main() -> Result<()> {
             Event::WindowEvent {event: WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left , .. }, .. } => {
                 match cursor_grabed{
                     true => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::None){
-                                println!("Error {err:?}");
+                                error!("Couldn't unlock the cursor: {err:}");
                             } else {
                                 window.set_cursor_visible(true);
                                 cursor_grabed = false 
                             }
                         }
-                    false => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::Locked){
-                                println!("Error {err:?}");
+                    false => {if let Err(err) = window.set_cursor_grab(CursorGrabMode::Confined){
+                                error!("Couldn't lock the cursor: {err:}");
                             } else {
                                 window.set_cursor_visible(false);
                                 cursor_grabed = true 
                             }
                         }
                 }
-                println!("Cursor {:?}", if cursor_grabed {"Locked"} else {"None"})
+                
+                println!("Cursor mode - {:?}", if cursor_grabed {CursorGrabMode::Confined} else {CursorGrabMode::None})
             }
             Event::WindowEvent { event: WindowEvent::MouseWheel { delta: LineDelta(x, y), ..}, ..} =>{
                 app.camera.pos.z += y;

@@ -71,7 +71,7 @@ fn main() {
     // print!("\x1b[H"); // Move cursor to top left corner of terminal
     loop {
         print!("\x1b[s");
-        context.map.display_term(0, 0, 100);
+        context.map.display_term(50, 0, 200, 100);
         // sleep(time::Duration::from_millis(20));
         let now = Instant::now();
         context.update();

@@ -17,8 +17,12 @@ use winit::window::Window;
 use vulkanalia::loader::{LibloadingLoader, LIBRARY};
 use vulkanalia::prelude::v1_0::*;
 use vulkanalia::vk::{
-    CommandBufferLevel, CommandPoolCreateInfo, KhrSurfaceExtensionInstanceCommands,
+    CommandBufferLevel,
+    CommandPoolCreateInfo,
+    InputChainStruct,
+    KhrSurfaceExtensionInstanceCommands,
     KhrSwapchainExtensionDeviceCommands,
+    StringArray,
 };
 use vulkanalia::{window as vk_window, Version};
 
@@ -396,7 +400,11 @@ const VALIDATION_LAYER: vk::ExtensionName =
 
 const PORTABILITY_MACOS_VERSION: Version = Version::new(1, 3, 216);
 
-const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[vk::KHR_SWAPCHAIN_EXTENSION.name];
+const DEVICE_EXTENSIONS: &[vk::ExtensionName] = &[
+    vk::KHR_SWAPCHAIN_EXTENSION.name,
+    vk::EXT_ROBUSTNESS2_EXTENSION.name,
+    vk::EXT_PIPELINE_ROBUSTNESS_EXTENSION.name,
+];
 // Define the MAX number of preview frames
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
@@ -435,14 +443,12 @@ unsafe fn create_instance(window: &Window, entry: &Entry, data: &mut AppData) ->
         .map(|e| e.as_ptr())
         .collect::<Vec<_>>();
 
+    extensions.push(
+        vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_EXTENSION.name.as_ptr(),
+    );
     // Required by Vulkan SDK on macOS since 1.3.216.
     let flags = if cfg!(target_os = "macos") && entry.version()? >= PORTABILITY_MACOS_VERSION {
         info!("Enabling extensions for macOS portability.");
-        extensions.push(
-            vk::KHR_GET_PHYSICAL_DEVICE_PROPERTIES2_EXTENSION
-                .name
-                .as_ptr(),
-        );
         extensions.push(vk::KHR_PORTABILITY_ENUMERATION_EXTENSION.name.as_ptr());
         vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
     } else {
@@ -469,13 +475,13 @@ unsafe fn create_instance(window: &Window, entry: &Entry, data: &mut AppData) ->
 
 #[derive(Debug, Error)]
 #[error("Missing {0}.")]
-pub struct SuitabilityError(pub &'static str);
+pub struct SuitabilityError(pub String);
 
 unsafe fn pick_physical_device(instance: &Instance, data: &mut AppData) -> Result<()> {
     for physical_device in instance.enumerate_physical_devices()? {
         let properties = instance.get_physical_device_properties(physical_device);
         if let Err(error) = check_physical_device(instance, data, physical_device) {
-            warn!(
+            log::warn!(
                 "Skipping physical device (`{}`): {}",
                 properties.device_name, error
             );
@@ -500,7 +506,7 @@ unsafe fn check_physical_device(
 
     let support = SwapchainSupport::get(instance, data, physical_device)?; // need to be done after the extension check
     if support.formats.is_empty() || support.present_modes.is_empty() {
-        return Err(anyhow!(SuitabilityError("Insufficient swapchain support.")));
+        return Err(anyhow!(SuitabilityError("Insufficient swapchain support.".to_string())));
     }
 
     Ok(())
@@ -518,8 +524,11 @@ unsafe fn check_physical_device_extensions(
     if DEVICE_EXTENSIONS.iter().all(|e| extensions.contains(e)) {
         Ok(())
     } else {
+        let missing_extensions = DEVICE_EXTENSIONS.iter()
+            .filter(|e| !extensions.contains(e))
+            .collect::<Vec<_>>();
         Err(anyhow!(SuitabilityError(
-            "Missing required device extensions."
+            format!("Missing required device extensions.{:?}", missing_extensions)
         )))
     }
 }
@@ -562,7 +571,7 @@ impl QueueFamilyIndices {
             Ok(Self { graphics, present })
         } else {
             Err(anyhow!(SuitabilityError(
-                "Missing required queue families."
+                "Missing required queue families.".to_string()
             )))
         }
     }
@@ -607,14 +616,23 @@ unsafe fn create_logical_device(
     if cfg!(target_os = "macos") && entry.version()? >= PORTABILITY_MACOS_VERSION {
         extensions.push(vk::KHR_PORTABILITY_SUBSET_EXTENSION.name.as_ptr());
     }
-
-    let features = vk::PhysicalDeviceFeatures::builder()
+    let feature1 = vk::PhysicalDeviceFeatures::builder()
         .geometry_shader(true);
+    let mut robustness2_feature = vk::PhysicalDeviceRobustness2FeaturesEXT::builder()
+        .null_descriptor(true);
+    let mut pipeline_robustness_feature = vk::PhysicalDevicePipelineRobustnessFeatures::builder()
+        .pipeline_robustness(true);
+    let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+        .features(feature1)
+        .push_next(&mut pipeline_robustness_feature)
+        .push_next(&mut robustness2_feature);   
+
+    let test = vk::PhysicalDeviceFeatures2::builder().s_type();
+
     let mut info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_infos)
-        // .enabled_layer_names(&layers)
         .enabled_extension_names(&extensions)
-        .enabled_features(&features);
+        .push_next(&mut features2);
     info.enabled_layer_count = 0;
 
     let device = instance.create_device(data.physical_device, &info, None)?;
