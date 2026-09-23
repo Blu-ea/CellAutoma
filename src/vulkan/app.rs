@@ -1063,7 +1063,7 @@ unsafe fn create_descriptor_set_layout(device: &Device, data: &mut AppData) -> R
         .binding(0)
         .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
         .descriptor_count(1)
-        .stage_flags(vk::ShaderStageFlags::VERTEX);
+        .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::GEOMETRY);
 
     let bindings = &[ubo_binding];
     let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(bindings);

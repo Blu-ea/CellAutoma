@@ -32,14 +32,14 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
     let vert_shader_module = create_shader_module(device, &vert[..])?;
     let frag_shader_module = create_shader_module(device, &frag[..])?;
 
-    let geom_stage = vk::PipelineShaderStageCreateInfo::builder()
-        .stage(vk::ShaderStageFlags::GEOMETRY)
-        .module(geom_shader_module)
-        .name(b"main\0");
-
     let vert_stage = vk::PipelineShaderStageCreateInfo::builder()
         .stage(vk::ShaderStageFlags::VERTEX)
         .module(vert_shader_module)
+        .name(b"main\0");
+
+    let geom_stage = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::GEOMETRY)
+        .module(geom_shader_module)
         .name(b"main\0");
 
     let frag_stage = vk::PipelineShaderStageCreateInfo::builder()
@@ -141,6 +141,7 @@ pub unsafe fn create_pipeline(device: &Device, data: &mut AppData) -> Result<()>
     // Cleanup
 
     device.destroy_shader_module(vert_shader_module, None);
+    device.destroy_shader_module(geom_shader_module, None);
     device.destroy_shader_module(frag_shader_module, None);
 
     Ok(())

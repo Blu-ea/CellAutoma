@@ -16,7 +16,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 void main(){
     vec4 base = gl_in[0].gl_Position;
     vec3 color = vertColor[0];
-    mat4 mvp = ubo.proj * ubo.view * ubo.model;
+    mat4 mvp = ubo.proj * ubo.view;
 
     vec4 offsets[4] = vec4[](
         vec4(0.0, 0.0, 0.0, 0.0),

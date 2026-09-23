@@ -82,8 +82,7 @@ fn main() -> Result<()> {
                 println!("Cursor mode - {:?}", if cursor_grabed {CursorGrabMode::Confined} else {CursorGrabMode::None})
             }
             Event::WindowEvent { event: WindowEvent::MouseWheel { delta: LineDelta(x, y), ..}, ..} =>{
-                app.camera.pos.z += y;
-                println!("mouse event - {:?}", (event));
+                app.camera.pos.z += y.signum();
             }
 
             Event::DeviceEvent { event: MouseMotion{delta} , ..} => {
