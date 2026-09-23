@@ -97,86 +97,12 @@ pub unsafe fn create_vertex_buffer(
     Ok(())
 }
 
-pub unsafe fn create_index_buffer(
-    instance: &Instance,
-    device: &Device,
-    data: &mut AppData,
-) -> Result<()> {
-    let size = (size_of::<u16>() * INDICES.len()) as u64;
-
-    let (staging_buffer, staging_buffer_memory) = create_buffer(
-        instance,
-        device,
-        data,
-        size,
-        vk::BufferUsageFlags::TRANSFER_SRC,
-        vk::MemoryPropertyFlags::HOST_COHERENT | vk::MemoryPropertyFlags::HOST_VISIBLE,
-    )?;
-
-    let memory = device.map_memory(
-        staging_buffer_memory,
-        0,
-        size,
-        vk::MemoryMapFlags::empty(),
-    )?;
-
-    memcpy(INDICES.as_ptr(), memory.cast(), INDICES.len());
-
-    device.unmap_memory(staging_buffer_memory);
-
-    let (index_buffer, index_buffer_memory) = create_buffer(
-        instance,
-        device,
-        data,
-        size,
-        vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::INDEX_BUFFER,
-        vk::MemoryPropertyFlags::DEVICE_LOCAL,
-    )?;
-
-    data.index_buffer = index_buffer;
-    data.index_buffer_memory = index_buffer_memory;
-
-    copy_buffer(device, data, staging_buffer, index_buffer, size)?;
-
-    device.destroy_buffer(staging_buffer, None);
-    device.free_memory(staging_buffer_memory, None);
-
-    Ok(())
-}
-
-// Square formation
-pub const INDICES: &[u16] = &[0,1,2,3];
 pub static mut VERTICES: [Vertex; 4] = [
     Vertex::new(vec2(-2.0, -2.0), vec3(1.0, 0.0, 0.0)),
     Vertex::new(vec2(1.0, 0.0), vec3(0.0, 1.0, 0.0)),
     Vertex::new(vec2(1.0, 1.0), vec3(0.0, 0.0, 1.0)),
     Vertex::new(vec2(0.0, 1.0), vec3(1.0, 1.0, 1.0)),
 ];
-
-// pub const INDICES: &[u16] = &[
-//     // front (+Z)
-//     0, 1, 2, 2, 3, 0,
-//     // back (-Z)
-//     5, 4, 7, 7, 6, 5,
-//     // left (-X)
-//     4, 0, 3, 3, 7, 4,
-//     // right (+X)
-//     1, 5, 6, 6, 2, 1,
-//     // top (+Y)
-//     3, 2, 6, 6, 7, 3,
-//     // bottom (-Y)
-//     4, 5, 1, 1, 0, 4,
-// ];
-// pub static mut VERTICES: [Vertex; 8] = [
-//     Vertex::new(vec3(-1.0, -1.0,  1.0), vec3(1.0, 0.0, 0.0)), // 0
-//     Vertex::new(vec3( 1.0, -1.0,  1.0), vec3(0.0, 1.0, 0.0)), // 1
-//     Vertex::new(vec3( 1.0,  1.0,  1.0), vec3(0.0, 0.0, 1.0)), // 2
-//     Vertex::new(vec3(-1.0,  1.0,  1.0), vec3(1.0, 1.0, 0.0)), // 3
-//     Vertex::new(vec3(-1.0, -1.0, -1.0), vec3(1.0, 0.0, 1.0)), // 4
-//     Vertex::new(vec3( 1.0, -1.0, -1.0), vec3(0.0, 1.0, 1.0)), // 5
-//     Vertex::new(vec3( 1.0,  1.0, -1.0), vec3(1.0, 1.0, 1.0)), // 6
-//     Vertex::new(vec3(-1.0,  1.0, -1.0), vec3(0.5, 0.5, 0.5)), // 7
-// ];
 
 pub unsafe fn update_vertex_buffer(
     instance: &Instance,

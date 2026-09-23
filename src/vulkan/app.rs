@@ -66,7 +66,6 @@ impl App {
         create_framebuffers(&device, &mut data)?;
         create_command_pool(&instance, &device, &mut data)?;
         create_vertex_buffer(&instance, &device, &mut data)?;
-        create_index_buffer(&instance, &device, &mut data)?;
         create_uniform_buffers(&instance, &device, &mut data)?;
         create_descriptor_pool(&device, &mut data)?;
         create_descriptor_sets(&device, &mut data)?;
@@ -796,7 +795,7 @@ unsafe fn create_swapchain_image_views(device: &Device, data: &mut AppData) -> R
 
 use crate::vulkan::pipeline::{create_grid_pipeline, create_pipeline};
 use crate::vulkan::obj::{
-    INDICES, Mat4, UniformBufferObject, create_index_buffer, create_uniform_buffers, create_vertex_buffer,
+    VERTICES, Mat4, UniformBufferObject, create_uniform_buffers, create_vertex_buffer,
 };
 
 unsafe fn create_render_pass(
@@ -933,7 +932,6 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
         {
             device.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::GRAPHICS, data.pipeline);
             device.cmd_bind_vertex_buffers(*command_buffer, 0, &[data.vertex_buffer], &[0]);
-            device.cmd_bind_index_buffer(*command_buffer, data.index_buffer, 0, vk::IndexType::UINT16);
             device.cmd_bind_descriptor_sets(
                 *command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
@@ -942,7 +940,7 @@ unsafe fn create_command_buffers(device: &Device, data: &mut AppData) -> Result<
                 &[data.descriptor_sets[i]],
                 &[],
             );
-            device.cmd_draw_indexed(*command_buffer, INDICES.len() as u32, 1, 0, 0, 0);
+            device.cmd_draw(*command_buffer, VERTICES.len() as u32, 1, 0, 0);
         }
         device.cmd_end_render_pass(*command_buffer);
         device.end_command_buffer(*command_buffer)?;
