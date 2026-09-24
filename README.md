@@ -12,7 +12,7 @@ The GameRules are define in a toml file.
 - `[cells]` contain a map, using the cell name as key, and cell object as value
 - `[[cells.<name>.rules]]` is a list of all the rule that apply to this cell type
 
-### - Engine Object
+### - Engine Object -
 
 |          Key          |  Type  | Default | Description                                                                   |
 | :-------------------: | :----: | :-----: | :---------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ simulation_dist = 1
 
 </details>
 
-### - Cell Object
+### - Cell Object -
 
 |   Key   |   Type   | Description                                                                                         |
 | :-----: | :------: | :-------------------------------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ color = "#ffffff"
 
 </details>
 
-### - Rule Object
+### - Rule Object -
 
 |     Key      |  Type  | Description                                                |
 | :----------: | :----: | :--------------------------------------------------------- |
