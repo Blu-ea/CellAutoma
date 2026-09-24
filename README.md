@@ -12,7 +12,7 @@ The GameRules are define in a toml file.
 - `[cells]` contain a map, using the cell name as key, and cell object as value
 - `[[cells.<name>.rules]]` is a list of all the rule that apply to this cell type
 
-### Engine Object
+### - Engine Object
 
 |          Key          |  Type  | Default | Description                                                                   |
 | :-------------------: | :----: | :-----: | :---------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ simulation_dist = 1
 
 </details>
 
-### Cell Oject
+### - Cell Object
 
 |   Key   |   Type   | Description                                                                                         |
 | :-----: | :------: | :-------------------------------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ color = "#ffffff"
 
 </details>
 
-### Rule Object
+### - Rule Object
 
 |     Key      |  Type  | Description                                                |
 | :----------: | :----: | :--------------------------------------------------------- |
@@ -75,6 +75,8 @@ next_state = 1      # the cell will be of this type on the next iteration
 ```
 
 </details>
+
+----
 
 #### Exemple - [Conway game of life](gameConfigFile/conway_rules.toml)
 
@@ -109,8 +111,6 @@ color = "#FFFFFF"
     max = 8
     next_state = 0
 ```
-
- ----
 
 ## More information
 
