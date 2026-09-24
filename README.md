@@ -2,6 +2,8 @@
 
 ## A Cellular Automaton in Rust
 
+This project is a Cellular automaton game, that can simulate multiple rules set (such as Conway game of life)
+
 ## Config File
 
 The GameRules are define in a toml file.
